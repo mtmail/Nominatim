@@ -19,9 +19,8 @@ sudo apt-get update -qq
 sudo apt-get install -y -qq libboost-dev libboost-system-dev \
                         libboost-filesystem-dev libexpat1-dev zlib1g-dev libxml2-dev\
                         libbz2-dev libpq-dev libgeos-c1 libgeos++-dev libproj-dev \
+                        postgresql-server-dev-9.6 postgresql-9.6-postgis-2.3 postgresql-contrib-9.6 \
                         apache2 php5 php5-pgsql php-pear php-db
-
-                        # postgresql-server-dev-9.5 postgresql-9.5-postgis-2.2 postgresql-contrib-9.5 \
 
 sudo apt-get install -y python3-dev python3-pip python3-psycopg2 python3-tidylib phpunit php-cgi
 
