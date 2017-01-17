@@ -3,6 +3,8 @@ language:
   - 'python'
 sudo: required
 dist: trusty
+addons:
+  postgresql: "9.5"
 before_install:
   - git submodule update --init --recursive
 install:
@@ -12,8 +14,8 @@ before_script:
   - wget --no-verbose --output-document=../data/testdb.pbf http://lonvia.de/nominatim/testdb.pbf
   - ./utils/setup.php --osm-file ../data/testdb.pbf --osm2pgsql-cache 1000 --all 2>&1 | grep -v 'ETA (seconds)'
   - psql -l
-  - ./utils/specialphrases.php --countries > ../data/specialphrases_countries.sql
-  - psql -d test_api_nominatim -f ../data/specialphrases_countries.sql
+  - ./utils/specialphrases.php --wiki-import > ../data/specialphrases.sql
+  - psql -d test_api_nominatim -f ../data/specialphrases.sql
 script:
   - cd $TRAVIS_BUILD_DIR/tests
   - phpunit ./
