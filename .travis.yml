@@ -13,7 +13,7 @@ before_script:
   - ./utils/setup.php --osm-file ../data/testdb.pbf --osm2pgsql-cache 1000 --all 2>&1 | grep -v 'ETA (seconds)'
   - psql -l
   - ./utils/specialphrases.php --countries > ../data/specialphrases_countries.sql
-  - psql -d nominatim -f ../data/specialphrases_countries.sql
+  - psql -d test_api_nominatim -f ../data/specialphrases_countries.sql
 script:
   - cd $TRAVIS_BUILD_DIR/tests
   - phpunit ./

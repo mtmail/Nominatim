@@ -13,7 +13,7 @@
 #  output from installation scripts
 # Travis strips color from the output
 
-sudo service postgresql stop
+# sudo service postgresql stop
 
 sudo apt-get update -qq
 sudo apt-get install -y -qq libboost-dev libboost-system-dev \
