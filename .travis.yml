@@ -11,6 +11,7 @@ before_script:
   - cd $TRAVIS_BUILD_DIR/build
   - wget --no-verbose --output-document=../data/testdb.pbf http://lonvia.de/nominatim/testdb.pbf
   - ./utils/setup.php --osm-file ../data/testdb.pbf --osm2pgsql-cache 1000 --all 2>&1 | grep -v 'ETA (seconds)'
+  - psql -l
   - ./utils/specialphrases.php --countries > ../data/specialphrases_countries.sql
   - psql -d nominatim -f ../data/specialphrases_countries.sql
 script:
