@@ -24,7 +24,7 @@ sudo apt-get install -y -qq libboost-dev libboost-system-dev \
 
 sudo apt-get install -y python3-dev python3-pip python3-psycopg2 python3-tidylib phpunit php-cgi
 
-pip3 install --user behave nose
+pip3 install --user behave nose tidylib cgi
 sudo pear install PHP_CodeSniffer
 
 
