@@ -22,12 +22,11 @@ sudo apt-get install -y -qq libboost-dev libboost-system-dev \
                         postgresql-server-dev-9.3 postgresql-9.3-postgis-2.1 postgresql-contrib-9.3 \
                         apache2 php5 php5-pgsql php-pear php-db
 
-sudo apt-get install -y -qq python-Levenshtein python-shapely \
-                        python-psycopg2 tidy python-nose python-tidylib \
-                        python-numpy phpunit
+sudo apt-get install -y python3-dev python3-pip python3-psycopg2 python3-tidylib phpunit php-cgi
 
-sudo -H pip install --quiet 'setuptools>=23.0.0' lettuce==0.2.18 'six>=1.9' haversine
+pip3 install --user behave nose
 sudo pear install PHP_CodeSniffer
+
 
 sudo service postgresql restart
 sudo -u postgres createuser -S www-data
@@ -62,4 +61,6 @@ make
 tee settings/local.php << EOF
 <?php
  @define('CONST_Website_BaseURL', '/nominatim/');
+ @define('CONST_Database_DSN', 'pgsql://@/test_api_nominatim');
+ @define('CONST_Wikipedia_Data_Path', CONST_BasePath.'/test/testdb');
 EOF
