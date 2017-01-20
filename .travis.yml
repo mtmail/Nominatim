@@ -20,8 +20,8 @@ script:
   - phpunit ./
   - phpcs --report-width=120 */**.php
   - cd $TRAVIS_BUILD_DIR/test/bdd
-  - # behave --format=progress3 features/api
-  - behave --format=progress3 features/db
-  - behave --format=progress3 features/osm2pgsql
+  - # behave --format=progress3 api
+  - behave --format=progress3 db
+  - behave --format=progress3 osm2pgsql
 notifications:
   email: false
