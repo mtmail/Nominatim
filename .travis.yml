@@ -20,6 +20,8 @@ script:
   - phpunit ./
   - phpcs --report-width=120 */**.php
   - cd $TRAVIS_BUILD_DIR/test/bdd
+  - du -sch $TRAVIS_BUILD_DIR
+  - df -lh .
   - # behave --format=progress3 api
   - behave --format=progress3 db
   - behave --format=progress3 osm2pgsql
