@@ -14,7 +14,7 @@ before_script:
   - psql -U postgres -c "create extension postgis"
   - cd $TRAVIS_BUILD_DIR/build
   - wget --no-verbose --output-document=../data/monaco.osm.pbf http://download.geofabrik.de/europe/monaco-latest.osm.pbf
-  - ./utils/setup.php --osm-file ../data/monaco.osm.pbf --osm2pgsql-cache 1000 --all 2>&1 | grep -v 'ETA (seconds)'
+  - #./utils/setup.php --osm-file ../data/monaco.osm.pbf --osm2pgsql-cache 1000 --all 2>&1 | grep -v 'ETA (seconds)'
 script:
   - cd $TRAVIS_BUILD_DIR/test/php
   - phpunit ./
@@ -26,6 +26,7 @@ script:
   - behave --format=progress3 db
   - behave --format=progress3 osm2pgsql
   - du -sch $TRAVIS_BUILD_DIR
+  - sudo du -sch /var/ramfs/*
   - df -h
 notifications:
   email: false
