@@ -8,8 +8,6 @@ addons:
   postgresql: "9.6"
 git:
   depth: 3
-before_install:
-  - # git submodule update --init --recursive
 install:
   - vagrant/install-on-travis-ci.sh
 before_script:
@@ -17,10 +15,10 @@ before_script:
   - cd $TRAVIS_BUILD_DIR/build
   - wget --no-verbose --output-document=../data/monaco.osm.pbf http://download.geofabrik.de/europe/monaco-latest.osm.pbf
   - ./utils/setup.php --osm-file ../data/monaco.osm.pbf --osm2pgsql-cache 1000 --all 2>&1 | grep -v 'ETA (seconds)'
-
 script:
   - cd $TRAVIS_BUILD_DIR/test/php
   - phpunit ./
+  - phpcs --report-width=120 */**.php
   - cd $TRAVIS_BUILD_DIR/test/bdd
   - # behave --format=progress3 features/api
   - behave --format=progress3 features/db

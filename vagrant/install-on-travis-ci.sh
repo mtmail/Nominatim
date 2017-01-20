@@ -1,14 +1,13 @@
 #!/bin/bash
 
-# This script runs in a travis-ci.org (or .com) virtual machine
+# This script runs in a travis-ci.org virtual machine
 # https://docs.travis-ci.com/user/trusty-ci-environment/
 # Ubuntu 14 (trusty)
 # user 'travis'
-# $TRAVIS_BUILD_DIR is /home/travis/build/twain47/Nominatim/, for more see
+# $TRAVIS_BUILD_DIR is /home/travis/build/twain47/Nominatim/, for others see
 #   https://docs.travis-ci.com/user/environment-variables/#Default-Environment-Variables
 # Postgres 9.6 installed and started. role 'travis' already superuser
 # Python 3.6
-
 # Travis has a 4 MB, 10000 line output limit, so where possible we run script --quiet
 
 
@@ -21,8 +20,8 @@ sudo apt-get install -y -qq libboost-dev libboost-system-dev \
 
 sudo apt-get install -y -qq python3-dev python3-pip python3-psycopg2 phpunit php5-cgi
 
-pip3 install --quiet behave nose pytidylib
-# sudo pear -q install PHP_CodeSniffer
+pip3 install --quiet behave nose pytidylib psycopg2
+sudo pear -q install PHP_CodeSniffer
 
 sudo -u postgres createuser -S www-data
 
