@@ -16,9 +16,11 @@ before_script:
   - cd $TRAVIS_BUILD_DIR/build
   - wget --no-verbose --output-document=../data/monaco.osm.pbf http://download.geofabrik.de/europe/monaco-latest.osm.pbf
   - ./utils/setup.php --osm-file ../data/monaco.osm.pbf --osm2pgsql-cache 1000 --all 2>&1 | grep -v 'ETA (seconds)'
-  - psql -l
-  - ./utils/specialphrases.php --wiki-import > ../data/specialphrases.sql
-  - psql -d test_api_nominatim -f ../data/specialphrases.sql
+  - # ./utils/specialphrases.php --wiki-import > ../data/specialphrases.sql
+  - # psql -d test_api_nominatim -f ../data/specialphrases.sql | grep getorcreate
+  - ./utils/specialphrases.php --countries > ../data/specialphrases_countries.sql
+  - psql -d nominatim -f ../data/specialphrases_countries.sql
+
 script:
   - cd $TRAVIS_BUILD_DIR/tests
   - phpunit ./
