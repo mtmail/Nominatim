@@ -9,7 +9,7 @@ addons:
 git:
   depth: 3
 before_install:
-  - git submodule update --init --recursive
+  - # git submodule update --init --recursive
 install:
   - vagrant/install-on-travis-ci.sh
 before_script:
@@ -22,8 +22,8 @@ script:
   - cd $TRAVIS_BUILD_DIR/test/php
   - phpunit ./
   - cd $TRAVIS_BUILD_DIR/test/bdd
-  - behave --format=progres3 features/api
-  - behave --format=progres3 features/db
-  - behave --format=progres3 features/osm2pgsql
+  -# behave --format=progress3 features/api
+  - behave --format=progress3 features/db
+  - behave --format=progress3 features/osm2pgsql
 notifications:
   email: false
