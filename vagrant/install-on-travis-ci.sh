@@ -22,9 +22,9 @@ sudo apt-get install -y -qq libboost-dev libboost-system-dev \
                         postgresql-server-dev-9.6 postgresql-9.6-postgis-2.3 postgresql-contrib-9.6 \
                         apache2 php5 php5-pgsql php-pear php-db
 
-sudo apt-get install -y -qq python3-dev python3-pip python3-psycopg2 phpunit php-cgi
+sudo apt-get install -y -qq python3-dev python3-pip python3-psycopg2 phpunit php5-cgi
 
-pip3 install --quiet --user behave nose tidylib cgi
+pip3 install --quiet behave nose tidylib cgi
 sudo pear -q install PHP_CodeSniffer
 
 
