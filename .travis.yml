@@ -21,7 +21,7 @@ before_script:
   - psql -d test_api_nominatim -f ../data/specialphrases_countries.sql
 
 script:
-  - cd $TRAVIS_BUILD_DIR/tests
+  - cd $TRAVIS_BUILD_DIR/tests/php
   - phpunit ./
   - cd $TRAVIS_BUILD_DIR/tests/bdd
   - behave --format=progres3 features/api
