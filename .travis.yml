@@ -8,25 +8,27 @@ addons:
   postgresql: "9.6"
 git:
   depth: 3
+env:
+  - TEST_SUITE=tests
+  - TEST_SUITE=countryimport
 install:
   - vagrant/install-on-travis-ci.sh
 before_script:
   - psql -U postgres -c "create extension postgis"
+script:
+  - if [[ $TEST_SUITE == "countryimport" ]]; then
   - cd $TRAVIS_BUILD_DIR/build
   - wget --no-verbose --output-document=../data/monaco.osm.pbf http://download.geofabrik.de/europe/monaco-latest.osm.pbf
-  - #./utils/setup.php --osm-file ../data/monaco.osm.pbf --osm2pgsql-cache 1000 --all 2>&1 | grep -v 'ETA (seconds)'
-script:
+  - ./utils/setup.php --osm-file ../data/monaco.osm.pbf --osm2pgsql-cache 1000 --all 2>&1 | grep -v 'ETA (seconds)'
+  - fi
+  - if [[ $TEST_SUITE == "tests" ]]; then
   - cd $TRAVIS_BUILD_DIR/test/php
   - phpunit ./
   - phpcs --report-width=120 */**.php
   - cd $TRAVIS_BUILD_DIR/test/bdd
-  - du -sch $TRAVIS_BUILD_DIR
-  - df -h
   - # behave --format=progress3 api
   - behave --format=progress3 db
   - behave --format=progress3 osm2pgsql
-  - du -sch $TRAVIS_BUILD_DIR
-  - sudo du -sch /var/ramfs/*
-  - df -h
+  - fi
 notifications:
   email: false
