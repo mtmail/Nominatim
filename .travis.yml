@@ -10,25 +10,21 @@ git:
   depth: 3
 env:
   - TEST_SUITE=tests
-  - TEST_SUITE=countryimport
+  - TEST_SUITE=monaco
 install:
   - vagrant/install-on-travis-ci.sh
 before_script:
   - psql -U postgres -c "create extension postgis"
 script:
-  - if [[ $TEST_SUITE == "countryimport" ]]; then
   - cd $TRAVIS_BUILD_DIR/build
-  - wget --no-verbose --output-document=../data/monaco.osm.pbf http://download.geofabrik.de/europe/monaco-latest.osm.pbf
-  - ./utils/setup.php --osm-file ../data/monaco.osm.pbf --osm2pgsql-cache 1000 --all 2>&1 | grep -v 'ETA (seconds)'
-  - fi
-  - if [[ $TEST_SUITE == "tests" ]]; then
+  - if [[ $TEST_SUITE == "monaco" ]]; then wget --no-verbose --output-document=../data/monaco.osm.pbf http://download.geofabrik.de/europe/monaco-latest.osm.pbf; fi
+  - if [[ $TEST_SUITE == "monaco" ]]; then ./utils/setup.php --osm-file ../data/monaco.osm.pbf --osm2pgsql-cache 1000 --all 2>&1 | grep -v 'ETA (seconds)'; fi
   - cd $TRAVIS_BUILD_DIR/test/php
-  - phpunit ./
-  - phpcs --report-width=120 */**.php
+  - if [[ $TEST_SUITE == "tests" ]]; then phpunit ./ ; fi
+  - if [[ $TEST_SUITE == "tests" ]]; then phpcs --report-width=120 */**.php ; fi
   - cd $TRAVIS_BUILD_DIR/test/bdd
   - # behave --format=progress3 api
-  - behave --format=progress3 db
-  - behave --format=progress3 osm2pgsql
-  - fi
+  - if [[ $TEST_SUITE == "tests" ]]; then behave --format=progress3 db ; fi
+  - if [[ $TEST_SUITE == "tests" ]]; then behave --format=progress3 osm2pgsql ; fi
 notifications:
   email: false
