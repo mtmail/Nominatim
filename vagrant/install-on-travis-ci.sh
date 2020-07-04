@@ -56,7 +56,8 @@ wget -O $TRAVIS_BUILD_DIR/data/country_osm_grid.sql.gz https://www.nominatim.org
 mkdir build
 cd build
 cmake $TRAVIS_BUILD_DIR
-make
+echo $(nproc)
+make -j$(nproc)
 
 
 tee settings/local.php << EOF
