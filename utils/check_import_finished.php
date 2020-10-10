@@ -104,16 +104,19 @@ $aExpectedIndices = array(
     'idx_place_addressline_address_place_id',
     'idx_placex_rank_search',
     'idx_placex_rank_address',
-    'idx_placex_pendingsector',
     'idx_placex_parent_place_id',
     'idx_placex_geometry_reverse_lookuppolygon',
     'idx_placex_geometry_reverse_placenode',
+    'idx_placex_wikidata',
+    'idx_location_area_country_geometry',
     'idx_location_area_country_place_id',
     'idx_osmline_parent_place_id',
     'idx_osmline_parent_osm_id',
     'idx_place_osm_unique',
     'idx_postcode_id',
-    'idx_postcode_postcode'
+    'idx_postcode_postcode',
+    'idx_wikipedia_article_osm_id',
+    'planet_osm_rels_parts_associated_idx'
 );
 if (!isReverseOnlyInstallation()) {
     $aExpectedIndices = array_merge($aExpectedIndices, array(
