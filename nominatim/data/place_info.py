@@ -9,6 +9,7 @@ Wrapper around place information the indexer gets from the database and hands to
 the tokenizer.
 """
 from typing import Optional, Mapping, Any, Tuple
+import json
 
 class PlaceInfo:
     """ This data class contains all information the tokenizer can access
@@ -18,6 +19,14 @@ class PlaceInfo:
     def __init__(self, info: Mapping[str, Any]) -> None:
         self._info = info
 
+
+    def __str__(self):
+        as_dict = {
+                'name': self.name,
+                'addres': self.address,
+                'place_info': self.rank_address
+            }
+        return json.dumps(as_dict)
 
     @property
     def name(self) -> Optional[Mapping[str, str]]:

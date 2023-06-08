@@ -37,6 +37,8 @@ class AdminFuncs:
                           help='Migrate the database to a new software version')
         objs.add_argument('--analyse-indexing', action='store_true',
                           help='Print performance analysis of the indexing process')
+        objs.add_argument('--debug-sanetizing', action='store_true',
+                          help='Print sanetizing debug information of a single place')
         objs.add_argument('--collect-os-info', action="store_true",
                           help="Generate a report about the host system information")
         group = parser.add_argument_group('Arguments for cache warming')
@@ -66,6 +68,12 @@ class AdminFuncs:
             LOG.warning('Analysing performance of indexing function')
             from ..tools import admin
             admin.analyse_indexing(args.config, osm_id=args.osm_id, place_id=args.place_id)
+            return 0
+
+        if args.debug_sanetizing:
+            LOG.warning('Debug sanetizing for single place')
+            from ..tools import admin
+            admin.debug_sanetizing(args.config, osm_id=args.osm_id, place_id=args.place_id)
             return 0
 
         if args.migrate:
