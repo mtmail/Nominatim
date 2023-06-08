@@ -15,6 +15,8 @@ from psycopg2.extras import Json, register_hstore
 from nominatim.config import Configuration
 from nominatim.db.connection import connect, Cursor
 from nominatim.tokenizer import factory as tokenizer_factory
+from nominatim.tokenizer.place_sanitizer import PlaceSanitizer
+from nominatim.tokenizer.icu_rule_loader import ICURuleLoader
 from nominatim.errors import UsageError
 from nominatim.data.place_info import PlaceInfo
 from nominatim.typing import DictCursorResult
@@ -84,6 +86,46 @@ def analyse_indexing(config: Configuration, osm_id: Optional[str] = None,
 
         # we do not want to keep the results
         conn.rollback()
+
+        for msg in conn.notices:
+            print(msg)
+
+def debug_sanetizing(config: Configuration, osm_id: Optional[str] = None,
+                     place_id: Optional[int] = None) -> None:
+    """ Run a sanetizer on a single Nominatim object and print debug information
+    """
+
+    with connect(config.get_libpq_dsn()) as conn:
+        register_hstore(conn)
+        with conn.cursor() as cur:
+            print('Reading place from database...')
+            place = _get_place_info(cur, osm_id, place_id)
+            place_info = PlaceInfo(place)
+
+            print('Input:')
+            print(place_info) # calls PlaceInfo.__str__
+
+            # All rules from configuration (settings/icu_tokenizer.yaml, the 'sanitizers' section)
+            loader = ICURuleLoader(config)
+            rules = loader.sanitizer_rules
+
+            # Or specify specific rules
+            # rules = [{'step': 'clean-housenumbers'}]
+            # rules = [{'step': 'clean-housenumbers',
+            #                   'convert-to-name': (r'\d+', 'n/a')}]
+
+            print('Running sanetizer with rules')
+            print(rules)
+            place_sanetizer = PlaceSanitizer(rules, config)
+            names, addresses = place_sanetizer.process_names(place_info)
+
+            print('Output:')
+            print('- Names')
+            for name in names:
+                print(name)
+            print('- Addresses')
+            for address in addresses:
+                print(address)
 
         for msg in conn.notices:
             print(msg)
