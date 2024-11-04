@@ -129,11 +129,8 @@ The release contains all necessary files. Just unpack it.
 
 ### Downloading the latest development version
 
-If you want to install latest development version from github, make sure to
-also check out the osm2pgsql subproject:
-
 ```
-git clone --recursive https://github.com/openstreetmap/Nominatim.git
+git clone https://github.com/openstreetmap/Nominatim.git
 ```
 
 The development version does not include the country grid. Download it separately:
