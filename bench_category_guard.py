@@ -1,20 +1,28 @@
 #!/usr/bin/env python3
 """
-Benchmark for the '[' guard clause in extract_category_from_query()
+Benchmark for the two changes to extract_category_from_query()
 (src/nominatim_api/v1/helpers.py).
 
-extract_category_from_query() runs on every free-form search. CATEGORY_REGEX
-is `(?P<pre>.*?)\\[...` used with .search(), which is quadratic in the query
-length when the query contains no '[': the lazy `.*?` scans forward from every
-start position. Since almost no real query carries a `[key=value]` category,
-the quadratic path is the one nearly every request takes.
+extract_category_from_query() runs on every /search request that carries a
+free-form 'q' parameter. It does not run for /reverse, for structured search,
+or for the CLI.
 
-The guard returns early when there is no '[' at all. It cannot change any
-result, because CATEGORY_REGEX requires a '[' to match.
+The original CATEGORY_REGEX was `(?P<pre>.*?)\\[...` used with .search(), which
+is quadratic in the query length: the lazy `.*?` scans forward from every start
+position. Two changes address it:
 
-This script measures only that guard. CATEGORY_REGEX itself is unchanged and
-stays quadratic for queries that do contain a '[' -- see the last row of the
-output.
+  1. guard      -- return early when the query contains no '[' at all. Real
+                   queries carrying a [key=value] category are rare, so this
+                   covers nearly every request. Cannot change any result,
+                   because the pattern needs a '[' to match.
+  2. slice      -- match only the category and recover the surrounding text by
+                   slicing the query. This keeps the pattern anchored on a
+                   literal '[', so matching is linear, which also fixes the
+                   case the guard cannot help with: a query that contains a '['
+                   without forming a valid category.
+
+Change 2 is not behaviour-preserving for queries containing a newline; see the
+final section of the output.
 
 Run:  ./bench_category_guard.py
 """
@@ -24,12 +32,13 @@ from typing import Optional, Tuple
 
 REPEATS = 9
 
-CATEGORY_REGEX = re.compile(r'(?P<pre>.*?)\[(?P<cls>[a-zA-Z_]+)=(?P<typ>[a-zA-Z_]+)\](?P<post>.*)')
+OLD_REGEX = re.compile(r'(?P<pre>.*?)\[(?P<cls>[a-zA-Z_]+)=(?P<typ>[a-zA-Z_]+)\](?P<post>.*)')
+NEW_REGEX = re.compile(r'\[(?P<cls>[a-zA-Z_]+)=(?P<typ>[a-zA-Z_]+)\]')
 
 
-def without_guard(query: str) -> Tuple[str, Optional[str], Optional[str]]:
-    """ extract_category_from_query() as it was before the change. """
-    match = CATEGORY_REGEX.search(query)
+def original(query: str) -> Tuple[str, Optional[str], Optional[str]]:
+    """ Before either change. """
+    match = OLD_REGEX.search(query)
     if match is not None:
         return (match.group('pre').strip() + ' ' + match.group('post').strip()).strip(), \
                match.group('cls'), match.group('typ')
@@ -37,14 +46,22 @@ def without_guard(query: str) -> Tuple[str, Optional[str], Optional[str]]:
     return query, None, None
 
 
-def with_guard(query: str) -> Tuple[str, Optional[str], Optional[str]]:
-    """ extract_category_from_query() as it is after the change. """
+def guard_only(query: str) -> Tuple[str, Optional[str], Optional[str]]:
+    """ With the '[' guard, original regex. """
     if '[' not in query:
         return query, None, None
 
-    match = CATEGORY_REGEX.search(query)
+    return original(query)
+
+
+def guard_and_slice(query: str) -> Tuple[str, Optional[str], Optional[str]]:
+    """ Current implementation: guard plus the sliced, linear regex. """
+    if '[' not in query:
+        return query, None, None
+
+    match = NEW_REGEX.search(query)
     if match is not None:
-        return (match.group('pre').strip() + ' ' + match.group('post').strip()).strip(), \
+        return (query[:match.start()].strip() + ' ' + query[match.end():].strip()).strip(), \
                match.group('cls'), match.group('typ')
 
     return query, None, None
@@ -69,12 +86,15 @@ def cases():
     # The common case: a plain address, no category anywhere.
     for n in (10, 20, 50, 100, 150, 200, 512):
         yield f'{n}ch, no category', address(n)
-    # The rare case: a real category. The guard must not slow this down.
+    # A real category. Neither change should slow this down.
     yield '200ch, [shop=bakery]', address(200) + ' [shop=bakery]'
-    # A '[' that is not a category. The guard does not fire, so the quadratic
-    # regex still runs. Fixing that needs a CATEGORY_REGEX change, which is
-    # deliberately not part of this commit.
+    # A '[' that is not a category. The guard cannot fire here, so this is the
+    # case that only the sliced regex fixes.
     yield '200ch, bare "[" only', address(100) + ' [ ' + address(100)
+    yield '512ch, bare "[" only', address(255) + ' [ ' + address(255)
+
+
+NEWLINE_CASES = ['foo [shop=fish]\nbar', 'foo\nbar [shop=fish]', 'a\nb [shop=fish] c\nd']
 
 
 def per_call_ms(func, query: str) -> float:
@@ -86,17 +106,21 @@ def per_call_ms(func, query: str) -> float:
 def main() -> None:
     print('extract_category_from_query(), milliseconds per call, '
           f'best of {REPEATS}\n')
-    print(f'{"case":<24} {"without guard":>14} {"with guard":>12} {"change":>14}')
-    print('-' * 68)
+    print(f'{"case":<24} {"original":>10} {"+guard":>10} {"+guard+slice":>13} '
+          f'{"vs original":>13}')
+    print('-' * 75)
 
     for label, query in cases():
-        before, after = without_guard(query), with_guard(query)
-        assert before == after, f'guard changed the result for {label}: {before} != {after}'
+        # The guard is a pure optimisation, so it must never change a result.
+        assert original(query) == guard_only(query), f'guard changed {label}'
+        # These cases contain no newline, so the sliced regex must agree too.
+        assert original(query) == guard_and_slice(query), f'slice changed {label}'
 
-        old = per_call_ms(without_guard, query)
-        new = per_call_ms(with_guard, query)
+        a = per_call_ms(original, query)
+        b = per_call_ms(guard_only, query)
+        c = per_call_ms(guard_and_slice, query)
 
-        factor = old / new if new else 0.0
+        factor = a / c if c else 0.0
         if factor >= 1.05:
             change = f'{factor:.0f}x faster' if factor >= 10 else f'{factor:.1f}x faster'
         elif 0 < factor <= 0.95:
@@ -104,10 +128,20 @@ def main() -> None:
         else:
             change = 'unchanged'
 
-        print(f'{label:<24} {old:>14.5f} {new:>12.5f} {change:>14}')
+        print(f'{label:<24} {a:>10.5f} {b:>10.5f} {c:>13.5f} {change:>13}')
 
     print()
-    print('The assert checks the guard returns an identical result for every case.')
+    print('Deliberate behaviour change: the original matched the text around the')
+    print('category with ".", which stops at a newline, so anything past the line')
+    print('break was silently dropped. Slicing keeps the whole query.')
+    print()
+    for query in NEWLINE_CASES:
+        assert original(query) == guard_only(query)
+        before, after = original(query)[0], guard_and_slice(query)[0]
+        assert before != after
+        print(f'  {query!r}')
+        print(f'      original {before!r}')
+        print(f'      now      {after!r}')
 
 
 if __name__ == '__main__':

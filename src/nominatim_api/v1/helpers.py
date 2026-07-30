@@ -203,7 +203,10 @@ def extract_coords_from_query(query: str) -> Tuple[str, Optional[float], Optiona
     return query, None, None
 
 
-CATEGORY_REGEX = re.compile(r'(?P<pre>.*?)\[(?P<cls>[a-zA-Z_]+)=(?P<typ>[a-zA-Z_]+)\](?P<post>.*)')
+# Matches the category only. The text around it is recovered by slicing the
+# query, which keeps the pattern anchored on a literal '[' so that matching
+# is linear in the length of the query.
+CATEGORY_REGEX = re.compile(r'\[(?P<cls>[a-zA-Z_]+)=(?P<typ>[a-zA-Z_]+)\]')
 
 
 def extract_category_from_query(query: str) -> Tuple[str, Optional[str], Optional[str]]:
@@ -221,7 +224,7 @@ def extract_category_from_query(query: str) -> Tuple[str, Optional[str], Optiona
 
     match = CATEGORY_REGEX.search(query)
     if match is not None:
-        return (match.group('pre').strip() + ' ' + match.group('post').strip()).strip(), \
+        return (query[:match.start()].strip() + ' ' + query[match.end():].strip()).strip(), \
                match.group('cls'), match.group('typ')
 
     return query, None, None

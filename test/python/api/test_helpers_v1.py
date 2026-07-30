@@ -119,3 +119,14 @@ def test_extract_category_only():
 @pytest.mark.parametrize('inp', ['house []', 'nothing', '[352]'])
 def test_extract_category_no_match(inp):
     assert helper.extract_category_from_query(inp) == (inp, None, None)
+
+
+@pytest.mark.parametrize('inp,outp', [('foo [shop=fish]\nbar', 'foo bar'),
+                                      ('foo\nbar [shop=fish]', 'foo\nbar'),
+                                      ('a\nb [shop=fish] c\nd', 'a\nb c\nd')])
+def test_extract_category_keeps_query_across_newlines(inp, outp):
+    """ The remainder of the query must survive a line break. Earlier versions
+        matched the surrounding text with '.', which stops at a newline, and so
+        silently dropped everything beyond it.
+    """
+    assert helper.extract_category_from_query(inp) == (outp, 'shop', 'fish')
