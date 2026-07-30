@@ -214,6 +214,11 @@ def extract_category_from_query(query: str) -> Tuple[str, Optional[str], Optiona
 
         Only the first match will be returned.
     """
+    # Queries with a category are rare, so skip the regex for the common
+    # case. CATEGORY_REGEX cannot match a query without a '['.
+    if '[' not in query:
+        return query, None, None
+
     match = CATEGORY_REGEX.search(query)
     if match is not None:
         return (match.group('pre').strip() + ' ' + match.group('post').strip()).strip(), \
