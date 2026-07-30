@@ -407,3 +407,16 @@ Feature: Search queries
           | polygon_text | geotext            |
           | polygon_svg  | svg                |
           | polygon_kml  | geokml             |
+
+    Scenario: Overly long queries are rejected
+        When sending v1/search
+          | q |
+          | longstreetname longstreetname longstreetname longstreetname longstreetname longstreetname longstreetname longstreetname longstreetname longstreetname longstreetname longstreetname longstreetname longstreetname longstreetname longstreetname longstreetname longstreetname longstreetname longstreetname longstreetname longstreetname longstreetname longstreetname longstreetname longstreetname longstreetname longstreetname longstreetname longstreetname longstreetname longstreetname longstreetname longstreetname longstreetname |
+        Then a HTTP 400 is returned
+
+    Scenario: Overly long structured queries are rejected
+        The limit is the total over all fields, so neither field is over it alone.
+        When sending v1/search
+          | street | city |
+          | longstreetname longstreetname longstreetname longstreetname longstreetname longstreetname longstreetname longstreetname longstreetname longstreetname longstreetname longstreetname longstreetname longstreetname longstreetname longstreetname longstreetname | longcityname longcityname longcityname longcityname longcityname longcityname longcityname longcityname longcityname longcityname longcityname longcityname longcityname longcityname longcityname longcityname longcityname longcityname longcityname longcityname |
+        Then a HTTP 400 is returned

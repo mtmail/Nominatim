@@ -65,6 +65,9 @@ that are relevant for the address you want to geocode.
     the API will return an error if you do so. Older versions simply return
     unexpected results.
 
+The query may be at most 500 characters long. For structured query the
+limit applies to the combined length of all fields.
+
 ## Parameters
 
 The following parameters can be used to further restrict the search and

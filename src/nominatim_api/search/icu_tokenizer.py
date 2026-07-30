@@ -19,11 +19,11 @@ import sqlalchemy as sa
 from ..typing import SaRow
 from ..sql.sqlalchemy_types import Json
 from ..connection import SearchConnection
+from ..errors import UsageError
 from ..logging import log
 from . import query as qmod
 from .query_analyzer_factory import AbstractQueryAnalyzer
 from .postcode_parser import PostcodeParser
-
 
 DB_TO_TOKEN_TYPE = {
     'W': qmod.TOKEN_WORD,
@@ -257,6 +257,13 @@ class ICUQueryAnalyzer(AbstractQueryAnalyzer):
 
             This function excludes postcode tokens
         """
+
+        # PostgreSQL accepts at most 65535 bind parameters per statement. We
+        # want to avoid a raw "internal server error" exception. MAX_QUERY_LENGTH
+        # already limits user query length.
+        if len(words) > 30000:
+            raise UsageError('Query too complex to analyse.')
+
         t = self.conn.t.meta.tables['word']
         return await self.conn.execute(t.select()
                                         .where(t.c.word_token.in_(words))

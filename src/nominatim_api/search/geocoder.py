@@ -15,6 +15,7 @@ import difflib
 import sqlalchemy as sa
 
 from ..connection import SearchConnection
+from ..errors import UsageError
 from ..types import PlaceRef, SearchDetails, PlaceID, OsmID, PostcodeRef
 from ..results import SearchResult, SearchResults, add_result_details
 from ..timeout import Timeout
@@ -25,6 +26,17 @@ from .db_searches import AbstractSearch
 from .query_analyzer_factory import make_query_analyzer, AbstractQueryAnalyzer
 from .query_preprocessor import QueryPreprocessor
 from .query import Phrase, QueryStruct
+
+# Limit the total length of a search query in characters. Cost of query analysis grows
+# quadratically with the length of the query and runs synchronously (before any 'await')
+MAX_QUERY_LENGTH = 500
+
+
+def check_query_length(length: int) -> None:
+    """ Raise a UsageError when a query of the given length is too long
+    """
+    if length > MAX_QUERY_LENGTH:
+        raise UsageError(f"Query exceeds maximum length of {MAX_QUERY_LENGTH} characters.")
 
 
 class ForwardGeocoder:
@@ -93,6 +105,8 @@ class ForwardGeocoder:
         """ Analyse the query and return the tokenized query and list of
             possible searches over it.
         """
+        check_query_length(sum(len(p.text) for p in phrases))
+
         if self.query_analyzer is None:
             self.query_analyzer = await make_query_analyzer(self.conn)
 

@@ -24,6 +24,7 @@ from ..types import DataLayer, GeometryFormat, PlaceRef, PlaceID, OsmID, Point, 
 from ..status import StatusResult
 from ..results import DetailedResult, ReverseResults, SearchResult, SearchResults
 from ..localization import Locales
+from ..search.geocoder import check_query_length
 from . import helpers
 from ..server import content_types as ct
 from ..server.asgi_adaptor import ASGIAdaptor, EndpointFunc
@@ -286,6 +287,8 @@ async def _unstructured_search(query: str, api: NominatimAPIAsync,
                                details: Dict[str, Any]) -> SearchResults:
     if not query:
         return SearchResults()
+
+    check_query_length(len(query))
 
     # Extract special format for coordinates from query.
     query, x, y = helpers.extract_coords_from_query(query)
