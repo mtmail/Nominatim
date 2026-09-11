@@ -9,7 +9,6 @@ Implementation of query analysis for the ICU tokenizer.
 """
 from typing import Tuple, Dict, List, Optional, Iterator, Any, cast
 import dataclasses
-import difflib
 import re
 
 from icu import Transliterator
@@ -60,24 +59,6 @@ class ICUToken(qmod.Token):
     def get_country(self) -> str:
         assert self.info
         return cast(str, self.info.get('cc', ''))
-
-    def match_penalty(self, norm: str) -> float:
-        """ Check how well the token matches the given normalized string
-            and add a penalty, if necessary.
-        """
-        if not self.lookup_word:
-            return 0.0
-
-        seq = difflib.SequenceMatcher(a=self.lookup_word, b=norm)
-        distance = 0
-        for tag, afrom, ato, bfrom, bto in seq.get_opcodes():
-            if tag in ('delete', 'insert') and (afrom == 0 or ato == len(self.lookup_word)):
-                distance += 1
-            elif tag == 'replace':
-                distance += max((ato-afrom), (bto-bfrom))
-            elif tag != 'equal':
-                distance += abs((ato-afrom) - (bto-bfrom))
-        return (distance/len(self.lookup_word))
 
     @staticmethod
     def from_db_row(row: SaRow) -> 'ICUToken':
