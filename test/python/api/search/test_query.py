@@ -60,7 +60,7 @@ def test_query_extract_words():
     q.add_node(nq.BREAK_WORD, nq.PHRASE_ANY, ptoken('ab'))
     q.add_node(nq.BREAK_TOKEN, nq.PHRASE_ANY, ptoken('12'))
     q.add_node(nq.BREAK_PHRASE, nq.PHRASE_ANY, ptoken('hallo'))
-    q.add_node(nq.BREAK_END, nq.PHRASE_ANY, nq.PARTIAL_END_TOKEN)
+    q.add_final_node()
 
     words = q.extract_words()
 

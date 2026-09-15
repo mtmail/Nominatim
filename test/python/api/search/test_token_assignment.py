@@ -32,7 +32,7 @@ def make_query(*args):
         q.add_node(btype, ptype,
                    qmod.PartialToken(penalty=10.0, token=-1, count=1, addr_count=1,
                                      lookup_word='', transliterated=''))
-    q.add_node(qmod.BREAK_END, qmod.PHRASE_ANY, qmod.PARTIAL_END_TOKEN)
+    q.add_final_node()
 
     for start, t in enumerate(args):
         for end, ttype in t[2]:
@@ -52,7 +52,7 @@ def check_assignments(actual, *expected):
 
 def test_query_with_missing_tokens():
     q = QueryStruct([Phrase(qmod.PHRASE_ANY, '')])
-    q.add_node(qmod.BREAK_END, qmod.PHRASE_ANY, qmod.PARTIAL_END_TOKEN)
+    q.add_final_node()
 
     assert list(yield_token_assignments(q)) == []
 

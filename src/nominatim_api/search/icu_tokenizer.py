@@ -125,7 +125,7 @@ class ICUQueryAnalyzer(AbstractQueryAnalyzer):
 
         log().var_dump('Normalized query', query.source)
         if not query.source:
-            query.add_node(qmod.BREAK_END, qmod.PHRASE_ANY, qmod.PARTIAL_END_TOKEN)
+            query.add_final_node()
             return query
 
         self.split_query(query)
@@ -228,7 +228,7 @@ class ICUQueryAnalyzer(AbstractQueryAnalyzer):
                     breakchar = None
             breakchar = qmod.BREAK_PHRASE
 
-        query.add_node(qmod.BREAK_END, qmod.PHRASE_ANY, qmod.PARTIAL_END_TOKEN)
+        query.add_final_node()
 
     async def lookup_in_db(self, words: List[str]) -> 'sa.Result[Any]':
         """ Return the token information from the database for the

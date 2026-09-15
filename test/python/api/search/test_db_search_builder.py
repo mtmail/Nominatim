@@ -53,7 +53,7 @@ def make_query(*args):
         q.add_node(qmod.BREAK_START if start == 0 else qmod.BREAK_WORD,
                    qmod.PHRASE_ANY, ptoken)
 
-    q.add_node(qmod.BREAK_END, qmod.PHRASE_ANY, qmod.PARTIAL_END_TOKEN)
+    q.add_final_node()
 
     for start, tlist in enumerate(args):
         for end, ttype, tinfos in tlist:
@@ -435,7 +435,7 @@ def make_counted_searches(name_part, name_full, address_part, address_full,
                    qmod.PartialToken(penalty=0.5, token=2, count=1, addr_count=address_part,
                                      lookup_word='address_part', transliterated='address_part'))
 
-    q.add_node(qmod.BREAK_END, qmod.PHRASE_ANY, qmod.PARTIAL_END_TOKEN)
+    q.add_final_node()
 
     q.add_token(TokenRange(0, 1), qmod.TOKEN_WORD,
                 MyToken(0, 101, name_full, 1, 'name_full'))

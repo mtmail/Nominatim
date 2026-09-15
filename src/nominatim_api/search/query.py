@@ -346,6 +346,13 @@ class QueryStruct:
         """
         self.nodes.append(QueryNode(btype, ptype, PENALTY_BREAK[btype], partial))
 
+    def add_final_node(self) -> None:
+        """ Append a closing node to the query graph. No further nodes must be
+            added after this node.
+        """
+        self.nodes.append(QueryNode(BREAK_END, PHRASE_ANY, PENALTY_BREAK[BREAK_END],
+                                    PARTIAL_END_TOKEN))
+
     def add_token(self, trange: TokenRange, ttype: TokenType, token: Token) -> None:
         """ Add a token to the query. 'start' and 'end' are the indexes of the
             nodes from which to which the token spans. The indexes must exist

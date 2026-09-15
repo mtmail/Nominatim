@@ -79,7 +79,7 @@ def mk_query(inp):
         else:
             add_node(query, brk, qmod.PHRASE_ANY, word)
             brk = None
-    query.add_node('>', qmod.PHRASE_ANY, qmod.PARTIAL_END_TOKEN)
+    query.add_final_node()
 
     return query
 
