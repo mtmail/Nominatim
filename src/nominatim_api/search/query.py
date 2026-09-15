@@ -400,6 +400,14 @@ class QueryStruct:
         """
         return (n.partial for n in self.nodes[trange.start:trange.end])
 
+    def get_partial_penalty(self, trange: TokenRange) -> float:
+        """ Return the sumed up penalty of partial tokens plus break
+            penalty between tokens in the given range.
+        """
+        return self.nodes[trange.start].partial.penalty + \
+            sum(n.partial.penalty + n.word_break_penalty
+                for n in self.nodes[trange.start + 1:trange.end])
+
     def iter_tokens_by_edge(self) -> Iterator[Tuple[int, int, Dict[TokenType, List[Token]]]]:
         """ Iterator over all tokens except partial ones grouped by edge.
 
