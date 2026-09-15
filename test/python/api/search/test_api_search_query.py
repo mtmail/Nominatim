@@ -26,11 +26,6 @@ def mktoken(tid: int):
                    lookup_word='foo')
 
 
-@pytest.fixture
-def qnode():
-    return query.QueryNode(query.BREAK_PHRASE, query.PHRASE_ANY, 0.0, '', '')
-
-
 @pytest.mark.parametrize('ptype,ttype', [(query.PHRASE_ANY, 'W'),
                                          (query.PHRASE_AMENITY, 'Q'),
                                          (query.PHRASE_STREET, 'w'),
@@ -46,34 +41,32 @@ def test_phrase_incompatible(ptype):
     assert not query._phrase_compatible_with(ptype, query.TOKEN_PARTIAL, True)
 
 
-def test_query_node_empty(qnode):
-    assert qnode.get_tokens(3, query.TOKEN_WORD) is None
+def test_query_node_empty():
+    q = query.QueryNode(query.BREAK_PHRASE, query.PHRASE_ANY, 0.0, mktoken(-1))
+    assert q.get_tokens(3, query.TOKEN_WORD) is None
 
 
-def test_query_node_with_content(qnode):
-    qnode.starting.append(query.TokenList(2, query.TOKEN_PARTIAL, [mktoken(100), mktoken(101)]))
-    qnode.starting.append(query.TokenList(2, query.TOKEN_WORD, [mktoken(1000)]))
+def test_query_node_with_content():
+    q = query.QueryNode(query.BREAK_PHRASE, query.PHRASE_ANY, 0.0, query.PARTIAL_END_TOKEN)
+    q.starting.append(query.TokenList(2, query.TOKEN_WORD, [mktoken(1000)]))
 
-    assert not qnode.has_tokens(3, query.TOKEN_PARTIAL)
-    assert not qnode.has_tokens(2, query.TOKEN_COUNTRY)
-    assert qnode.has_tokens(2, query.TOKEN_PARTIAL)
-    assert qnode.has_tokens(2, query.TOKEN_WORD)
+    assert not q.has_tokens(2, query.TOKEN_COUNTRY)
+    assert q.has_tokens(2, query.TOKEN_WORD)
 
-    assert qnode.get_tokens(2, query.TOKEN_COUNTRY) is None
-    assert len(qnode.get_tokens(2, query.TOKEN_PARTIAL)) == 2
-    assert len(qnode.get_tokens(2, query.TOKEN_WORD)) == 1
+    assert q.get_tokens(2, query.TOKEN_COUNTRY) is None
+    assert len(q.get_tokens(2, query.TOKEN_WORD)) == 1
+
+    assert q.partial == query.PARTIAL_END_TOKEN
 
 
 def test_query_struct_with_tokens():
     q = query.QueryStruct([query.Phrase(query.PHRASE_ANY, 'foo bar')])
-    q.add_node(query.BREAK_START, query.PHRASE_ANY)
-    q.add_node(query.BREAK_WORD, query.PHRASE_ANY)
-    q.add_node(query.BREAK_END, query.PHRASE_ANY)
+    q.add_node(query.BREAK_START, query.PHRASE_ANY, mktoken(1))
+    q.add_node(query.BREAK_WORD, query.PHRASE_ANY, mktoken(2))
+    q.add_node(query.BREAK_END, query.PHRASE_ANY, query.PARTIAL_END_TOKEN)
 
     assert q.num_token_slots() == 2
 
-    q.add_token(query.TokenRange(0, 1), query.TOKEN_PARTIAL, mktoken(1))
-    q.add_token(query.TokenRange(1, 2), query.TOKEN_PARTIAL, mktoken(2))
     q.add_token(query.TokenRange(1, 2), query.TOKEN_WORD, mktoken(99))
     q.add_token(query.TokenRange(1, 2), query.TOKEN_WORD, mktoken(98))
 
@@ -91,20 +84,21 @@ def test_query_struct_with_tokens():
 
 def test_query_struct_incompatible_token():
     q = query.QueryStruct([query.Phrase(query.PHRASE_COUNTRY, 'foo bar')])
-    q.add_node(query.BREAK_START, query.PHRASE_COUNTRY)
-    q.add_node(query.BREAK_WORD, query.PHRASE_COUNTRY)
-    q.add_node(query.BREAK_END, query.PHRASE_ANY)
+    q.add_node(query.BREAK_START, query.PHRASE_COUNTRY, mktoken(-1))
+    q.add_node(query.BREAK_WORD, query.PHRASE_COUNTRY, mktoken(-1))
+    q.add_node(query.BREAK_END, query.PHRASE_ANY, query.PARTIAL_END_TOKEN)
 
     q.add_token(query.TokenRange(0, 1), query.TOKEN_PARTIAL, mktoken(1))
     q.add_token(query.TokenRange(1, 2), query.TOKEN_COUNTRY, mktoken(100))
 
     assert len(q.get_tokens(query.TokenRange(1, 2), query.TOKEN_COUNTRY)) == 1
+    assert q.nodes[0].partial.token == -1
 
 
 def test_query_struct_amenity_single_word():
     q = query.QueryStruct([query.Phrase(query.PHRASE_AMENITY, 'bar')])
-    q.add_node(query.BREAK_START, query.PHRASE_ANY)
-    q.add_node(query.BREAK_END, query.PHRASE_ANY)
+    q.add_node(query.BREAK_START, query.PHRASE_ANY, mktoken(-1))
+    q.add_node(query.BREAK_END, query.PHRASE_ANY, query.PARTIAL_END_TOKEN)
 
     q.add_token(query.TokenRange(0, 1), query.TOKEN_PARTIAL, mktoken(1))
     q.add_token(query.TokenRange(0, 1), query.TOKEN_NEAR_ITEM, mktoken(2))
@@ -117,12 +111,11 @@ def test_query_struct_amenity_single_word():
 
 def test_query_struct_amenity_two_words():
     q = query.QueryStruct([query.Phrase(query.PHRASE_AMENITY, 'foo bar')])
-    q.add_node(query.BREAK_START, query.PHRASE_AMENITY)
-    q.add_node(query.BREAK_WORD, query.PHRASE_AMENITY)
-    q.add_node(query.BREAK_END, query.PHRASE_ANY)
+    q.add_node(query.BREAK_START, query.PHRASE_AMENITY, mktoken(1))
+    q.add_node(query.BREAK_WORD, query.PHRASE_AMENITY, mktoken(1))
+    q.add_node(query.BREAK_END, query.PHRASE_ANY, query.PARTIAL_END_TOKEN)
 
     for trange in [(0, 1), (1, 2)]:
-        q.add_token(query.TokenRange(*trange), query.TOKEN_PARTIAL, mktoken(1))
         q.add_token(query.TokenRange(*trange), query.TOKEN_NEAR_ITEM, mktoken(2))
         q.add_token(query.TokenRange(*trange), query.TOKEN_QUALIFIER, mktoken(3))
 

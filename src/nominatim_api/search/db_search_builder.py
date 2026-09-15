@@ -2,7 +2,7 @@
 #
 # This file is part of Nominatim. (https://nominatim.org)
 #
-# Copyright (C) 2025 by the Nominatim developer community.
+# Copyright (C) 2026 by the Nominatim developer community.
 # For a full list of authors see the git log.
 """
 Conversion from token assignment to an abstract DB search.
@@ -323,7 +323,7 @@ class SearchBuilder:
             _, pos, rank = heapq.heappop(todo)
             # partial node
             partial = self.query.nodes[pos].partial
-            if partial is not None:
+            if partial.penalty < 10.0:
                 if pos + 1 < trange.end:
                     penalty = rank.penalty + partial.penalty \
                               + self.query.nodes[pos + 1].word_break_penalty

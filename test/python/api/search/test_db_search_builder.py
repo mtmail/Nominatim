@@ -33,21 +33,38 @@ class MyToken(Token):
 def make_query(*args):
     q = QueryStruct([Phrase(qmod.PHRASE_ANY, '')])
 
-    for _ in range(max(inner[0] for tlist in args for inner in tlist)):
-        q.add_node(qmod.BREAK_WORD, qmod.PHRASE_ANY)
-    q.add_node(qmod.BREAK_END, qmod.PHRASE_ANY)
-    q.nodes[0].btype = qmod.BREAK_START
+    for start, tlist in enumerate(args):
+        for end, ttype, tinfos in tlist:
+            if ttype == qmod.TOKEN_PARTIAL:
+                tinfo = tinfos[0]
+                if isinstance(tinfo, tuple):
+                    ptoken = qmod.PartialToken(
+                                penalty=0.5, token=tinfo[0], count=1, addr_count=1,
+                                lookup_word=tinfo[1], transliterated=tinfo[1])
+                else:
+                    assert isinstance(tinfo, qmod.PartialToken)
+                    ptoken = tinfo
+                break
+        else:
+            ptoken = qmod.PartialToken(
+                        penalty=0.5, token=-1, count=1, addr_count=1,
+                        lookup_word='', transliterated='')
+
+        q.add_node(qmod.BREAK_START if start == 0 else qmod.BREAK_WORD,
+                   qmod.PHRASE_ANY, ptoken)
+
+    q.add_node(qmod.BREAK_END, qmod.PHRASE_ANY, qmod.PARTIAL_END_TOKEN)
 
     for start, tlist in enumerate(args):
         for end, ttype, tinfos in tlist:
-            for tinfo in tinfos:
-                if isinstance(tinfo, tuple):
-                    q.add_token(TokenRange(start, end), ttype,
-                                MyToken(penalty=0.5 if ttype == qmod.TOKEN_PARTIAL else 0.0,
-                                        token=tinfo[0], count=1, addr_count=1,
-                                        lookup_word=tinfo[1]))
-                else:
-                    q.add_token(TokenRange(start, end), ttype, tinfo)
+            if ttype != qmod.TOKEN_PARTIAL:
+                for tinfo in tinfos:
+                    if isinstance(tinfo, tuple):
+                        q.add_token(TokenRange(start, end), ttype,
+                                    MyToken(penalty=0.0, token=tinfo[0], count=1, addr_count=1,
+                                            lookup_word=tinfo[1]))
+                    else:
+                        q.add_token(TokenRange(start, end), ttype, tinfo)
 
     return q
 
@@ -410,18 +427,19 @@ def test_name_only_search_with_countries():
 def make_counted_searches(name_part, name_full, address_part, address_full,
                           num_address_parts=1):
     q = QueryStruct([Phrase(qmod.PHRASE_ANY, '')])
-    for i in range(1 + num_address_parts):
-        q.add_node(qmod.BREAK_WORD, qmod.PHRASE_ANY)
-    q.add_node(qmod.BREAK_END, qmod.PHRASE_ANY)
-    q.nodes[0].btype = qmod.BREAK_START
+    q.add_node(qmod.BREAK_START, qmod.PHRASE_ANY,
+               qmod.PartialToken(penalty=0.5, token=1, count=name_part, addr_count=1,
+                                 lookup_word='name_part', transliterated='name_part'))
+    for i in range(num_address_parts):
+        q.add_node(qmod.BREAK_WORD, qmod.PHRASE_ANY,
+                   qmod.PartialToken(penalty=0.5, token=2, count=1, addr_count=address_part,
+                                     lookup_word='address_part', transliterated='address_part'))
 
-    q.add_token(TokenRange(0, 1), qmod.TOKEN_PARTIAL,
-                MyToken(0.5, 1, name_part, 1, 'name_part'))
+    q.add_node(qmod.BREAK_END, qmod.PHRASE_ANY, qmod.PARTIAL_END_TOKEN)
+
     q.add_token(TokenRange(0, 1), qmod.TOKEN_WORD,
                 MyToken(0, 101, name_full, 1, 'name_full'))
     for i in range(num_address_parts):
-        q.add_token(TokenRange(i + 1, i + 2), qmod.TOKEN_PARTIAL,
-                    MyToken(0.5, 2, 1, address_part, 'address_part'))
         q.add_token(TokenRange(i + 1, i + 2), qmod.TOKEN_WORD,
                     MyToken(0, 102, 1, address_full, 'address_full'))
 

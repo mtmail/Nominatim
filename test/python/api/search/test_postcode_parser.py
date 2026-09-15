@@ -13,7 +13,7 @@ import re
 import pytest
 
 from nominatim_api.search.postcode_parser import PostcodeParser
-from nominatim_api.search.query import QueryStruct, PHRASE_ANY, PHRASE_POSTCODE, PHRASE_STREET
+from nominatim_api.search import query as qmod
 
 
 @pytest.fixture
@@ -62,8 +62,14 @@ gb:
     return project_env
 
 
+def add_node(query, btype, ptype, word):
+    query.add_node(btype, ptype,
+                   qmod.PartialToken(penalty=10.0, token=-1, count=1, addr_count=1,
+                                     lookup_word=word, transliterated=word))
+
+
 def mk_query(inp):
-    query = QueryStruct([])
+    query = qmod.QueryStruct([])
     phrase_split = re.split(r"([ ,:'-])", inp)
 
     brk = '<'
@@ -71,9 +77,9 @@ def mk_query(inp):
         if brk is None:
             brk = word
         else:
-            query.add_node(brk, PHRASE_ANY, word, word)
+            add_node(query, brk, qmod.PHRASE_ANY, word)
             brk = None
-    query.add_node('>', PHRASE_ANY)
+    query.add_node('>', qmod.PHRASE_ANY, qmod.PARTIAL_END_TOKEN)
 
     return query
 
@@ -156,11 +162,11 @@ def test_postcode_with_non_matching_country_prefix(pc_config):
 def test_postcode_inside_postcode_phrase(pc_config):
     parser = PostcodeParser(pc_config)
 
-    query = QueryStruct([])
-    query.add_node('<', PHRASE_STREET, '12345', '12345')
-    query.add_node(',', PHRASE_POSTCODE, 'xz', 'xz')
-    query.add_node(',', PHRASE_POSTCODE, '4444', '4444')
-    query.add_node('>', PHRASE_ANY)
+    query = qmod.QueryStruct([])
+    add_node(query, '<', qmod.PHRASE_STREET, '12345')
+    add_node(query, ',', qmod.PHRASE_POSTCODE, 'xz')
+    add_node(query, ',', qmod.PHRASE_POSTCODE, '4444')
+    add_node(query, '>', qmod.PHRASE_ANY, qmod.PARTIAL_END_TOKEN)
 
     assert parser.parse(query) == {(2, 3, '4444')}
 
@@ -168,9 +174,9 @@ def test_postcode_inside_postcode_phrase(pc_config):
 def test_partial_postcode_in_postcode_phrase(pc_config):
     parser = PostcodeParser(pc_config)
 
-    query = QueryStruct([])
-    query.add_node('<', PHRASE_POSTCODE, '2224', '2224')
-    query.add_node(' ', PHRASE_POSTCODE, '12345', '12345')
-    query.add_node('>', PHRASE_ANY)
+    query = qmod.QueryStruct([])
+    add_node(query, '<', qmod.PHRASE_POSTCODE, '2224')
+    add_node(query, ' ', qmod.PHRASE_POSTCODE, '12345')
+    add_node(query, '>', qmod.PHRASE_ANY, qmod.PARTIAL_END_TOKEN)
 
     assert not parser.parse(query)

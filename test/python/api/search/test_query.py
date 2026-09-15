@@ -12,6 +12,11 @@ import pytest
 import nominatim_api.search.query as nq
 
 
+def ptoken(word):
+    return nq.PartialToken(penalty=10.0, token=-1, count=1, addr_count=1,
+                           lookup_word=word, transliterated=word)
+
+
 def test_token_range_equal():
     assert nq.TokenRange(2, 3) == nq.TokenRange(2, 3)
     assert not (nq.TokenRange(2, 3) != nq.TokenRange(2, 3))
@@ -51,11 +56,11 @@ def test_token_range_unimplemented_ops():
 
 def test_query_extract_words():
     q = nq.QueryStruct([])
-    q.add_node(nq.BREAK_START, nq.PHRASE_ANY, '12', '')
-    q.add_node(nq.BREAK_WORD, nq.PHRASE_ANY, 'ab', '')
-    q.add_node(nq.BREAK_TOKEN, nq.PHRASE_ANY, '12', '')
-    q.add_node(nq.BREAK_PHRASE, nq.PHRASE_ANY, 'hallo', '')
-    q.add_node(nq.BREAK_END, nq.PHRASE_ANY)
+    q.add_node(nq.BREAK_START, nq.PHRASE_ANY, ptoken('12'))
+    q.add_node(nq.BREAK_WORD, nq.PHRASE_ANY, ptoken('ab'))
+    q.add_node(nq.BREAK_TOKEN, nq.PHRASE_ANY, ptoken('12'))
+    q.add_node(nq.BREAK_PHRASE, nq.PHRASE_ANY, ptoken('hallo'))
+    q.add_node(nq.BREAK_END, nq.PHRASE_ANY, nq.PARTIAL_END_TOKEN)
 
     words = q.extract_words()
 
