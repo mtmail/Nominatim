@@ -70,7 +70,7 @@ def add_node(query, btype, ptype, word):
 
 def mk_query(inp):
     query = qmod.QueryStruct([])
-    phrase_split = re.split(r"([ ,:'-])", inp)
+    phrase_split = re.split(r"([ ,:`-])", inp)
 
     brk = '<'
     for word in phrase_split:
@@ -131,7 +131,7 @@ def test_overlapping_postcode(pc_config):
     assert parser.parse(mk_query('123 456 78')) == {(0, 2, '123456'), (1, 3, '456 78')}
 
 
-@pytest.mark.parametrize('query', ['45325-Berlin', "45325'Berlin",
+@pytest.mark.parametrize('query', ['45325-Berlin', "45325`Berlin",
                                    'Berlin-45325', "Berlin'45325", '45325Berlin'
                                    '345-987', "345'987", '345,987', '345:987'])
 def test_not_a_postcode(pc_config, query):

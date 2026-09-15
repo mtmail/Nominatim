@@ -34,16 +34,6 @@ DB_TO_TOKEN_TYPE = {
     'C': qmod.TOKEN_COUNTRY
 }
 
-PENALTY_BREAK = {
-     qmod.BREAK_START: -0.5,
-     qmod.BREAK_END: -0.5,
-     qmod.BREAK_PHRASE: -0.5,
-     qmod.BREAK_SOFT_PHRASE: -0.5,
-     qmod.BREAK_WORD: 0.1,
-     qmod.BREAK_PART: 0.2,
-     qmod.BREAK_TOKEN: 0.4
-}
-
 
 @dataclasses.dataclass
 class ICUToken(qmod.Token):
@@ -176,7 +166,6 @@ class ICUQueryAnalyzer(AbstractQueryAnalyzer):
                                      lookup_word=pc, word_token=term,
                                      info=None))
         self.rerank_tokens(query)
-        self.compute_break_penalties(query)
 
         log().table_dump('Word tokens', _dump_word_tokens(query))
 
@@ -309,12 +298,6 @@ class ICUQueryAnalyzer(AbstractQueryAnalyzer):
                     itok = cast(ICUToken, token)
                     itok.penalty += itok.match_penalty(norm) * \
                         (1 if ttype in (qmod.TOKEN_WORD, qmod.TOKEN_PARTIAL) else 2)
-
-    def compute_break_penalties(self, query: qmod.QueryStruct) -> None:
-        """ Set the break penalties for the nodes in the query.
-        """
-        for node in query.nodes:
-            node.penalty = PENALTY_BREAK[node.btype]
 
 
 def _dump_word_tokens(query: qmod.QueryStruct) -> Iterator[List[Any]]:

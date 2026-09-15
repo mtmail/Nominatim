@@ -90,6 +90,17 @@ PHRASE_COUNTRY = 7
 """ Contains the country name or code. """
 
 
+PENALTY_BREAK = {
+     BREAK_START: -0.5,
+     BREAK_END: -0.5,
+     BREAK_PHRASE: -0.5,
+     BREAK_SOFT_PHRASE: -0.5,
+     BREAK_WORD: 0.1,
+     BREAK_PART: 0.2,
+     BREAK_TOKEN: 0.4
+}
+
+
 def _phrase_compatible_with(ptype: PhraseType, ttype: TokenType,
                             is_full_phrase: bool) -> bool:
     """ Check if the given token type can be used with the phrase type.
@@ -333,7 +344,7 @@ class QueryStruct:
             The phrase type denotes the type for any tokens starting
             at the node.
         """
-        self.nodes.append(QueryNode(btype, ptype, 0.0, partial))
+        self.nodes.append(QueryNode(btype, ptype, PENALTY_BREAK[btype], partial))
 
     def add_token(self, trange: TokenRange, ttype: TokenType, token: Token) -> None:
         """ Add a token to the query. 'start' and 'end' are the indexes of the
