@@ -2,7 +2,7 @@
 #
 # This file is part of Nominatim. (https://nominatim.org)
 #
-# Copyright (C) 2025 by the Nominatim developer community.
+# Copyright (C) 2026 by the Nominatim developer community.
 # For a full list of authors see the git log.
 """
 Datastructures for a tokenized query.
@@ -11,6 +11,7 @@ from typing import Dict, List, Tuple, Optional, Iterator
 from abc import ABC, abstractmethod
 from collections import defaultdict
 import dataclasses
+import difflib
 
 # Precomputed denominator for the computation of the linear regression slope
 # used to determine the query direction.
@@ -89,6 +90,17 @@ PHRASE_COUNTRY = 7
 """ Contains the country name or code. """
 
 
+PENALTY_BREAK = {
+     BREAK_START: -0.5,
+     BREAK_END: -0.5,
+     BREAK_PHRASE: -0.5,
+     BREAK_SOFT_PHRASE: -0.5,
+     BREAK_WORD: 0.1,
+     BREAK_PART: 0.2,
+     BREAK_TOKEN: 0.4
+}
+
+
 def _phrase_compatible_with(ptype: PhraseType, ttype: TokenType,
                             is_full_phrase: bool) -> bool:
     """ Check if the given token type can be used with the phrase type.
@@ -132,6 +144,47 @@ class Token(ABC):
         """ Return the country code this token is associated with
             (currently for country tokens only).
         """
+
+    def match_penalty(self, norm: str) -> float:
+        """ Check how well the token matches the given normalized string
+            and add a penalty, if necessary.
+        """
+        if not self.lookup_word:
+            return 0.0
+
+        seq = difflib.SequenceMatcher(a=self.lookup_word, b=norm)
+        distance = 0
+        for tag, afrom, ato, bfrom, bto in seq.get_opcodes():
+            if tag in ('delete', 'insert') and (afrom == 0 or ato == len(self.lookup_word)):
+                distance += 1
+            elif tag == 'replace':
+                distance += max((ato-afrom), (bto-bfrom))
+            elif tag != 'equal':
+                distance += abs((ato-afrom) - (bto-bfrom))
+        return (distance/len(self.lookup_word))
+
+
+@dataclasses.dataclass
+class PartialToken(Token):
+    """ A partial token describes the word between two consecutive
+        query nodes. As such it is the smallest token entity.
+        In contrast to normal tokens it also saves the transliterated
+        form of the token.
+    """
+
+    transliterated: str
+
+    def get_category(self) -> Tuple[str, str]:
+        return ('', '')
+
+    def get_country(self) -> str:
+        return ''
+
+
+PARTIAL_END_TOKEN = PartialToken(penalty=10.0, token=-1, count=1, addr_count=1,
+                                 lookup_word='', transliterated='')
+""" Dummy token for the final node.
+"""
 
 
 @dataclasses.dataclass
@@ -189,34 +242,26 @@ class TokenList:
 class QueryNode:
     """ A node of the query representing a break between terms.
 
-        The node also contains information on the source term
-        starting at the node. The tokens are created from this information.
+        The node also contains information on the source terms
+        starting at the node.
     """
     btype: BreakType
+    """ Type of break at this node.
+    """
     ptype: PhraseType
     """ Type of phrase for edges starting at this node.
     """
-
     penalty: float
     """ Penalty for having a word break at this position. The penalty
         may be negative, when a word break is more likely than continuing
         the word after the node.
     """
-    term_lookup: str
-    """ Transliterated term starting at this node.
-    """
-    term_normalized: str
-    """ Normalised form of term starting at this node.
-    """
 
+    partial: PartialToken
+    """ Base token going to the next node.
+    """
     starting: List[TokenList] = dataclasses.field(default_factory=list)
     """ List of all full tokens starting at this node.
-    """
-    partial: Optional[Token] = None
-    """ Base token going to the next node.
-        May be None when the query has parts for which no words are known.
-        Note that the query may still be parsable when there are other
-        types of tokens spanning over the gap.
     """
 
     @property
@@ -236,9 +281,6 @@ class QueryNode:
         """ Return the probability that the partial token belonging to
             this node forms part of a name (as opposed of part of the address).
         """
-        if self.partial is None:
-            return 0.5
-
         return self.partial.count / (self.partial.count + self.partial.addr_count)
 
     def has_tokens(self, end: int, *ttypes: TokenType) -> bool:
@@ -297,13 +339,19 @@ class QueryStruct:
         """
         return len(self.nodes) - 1
 
-    def add_node(self, btype: BreakType, ptype: PhraseType,
-                 term_lookup: str = '', term_normalized: str = '') -> None:
+    def add_node(self, btype: BreakType, ptype: PhraseType, partial: PartialToken) -> None:
         """ Append a new break node with the given break type.
             The phrase type denotes the type for any tokens starting
             at the node.
         """
-        self.nodes.append(QueryNode(btype, ptype, 0.0, term_lookup, term_normalized))
+        self.nodes.append(QueryNode(btype, ptype, PENALTY_BREAK[btype], partial))
+
+    def add_final_node(self) -> None:
+        """ Append a closing node to the query graph. No further nodes must be
+            added after this node.
+        """
+        self.nodes.append(QueryNode(BREAK_END, PHRASE_ANY, PENALTY_BREAK[BREAK_END],
+                                    PARTIAL_END_TOKEN))
 
     def add_token(self, trange: TokenRange, ttype: TokenType, token: Token) -> None:
         """ Add a token to the query. 'start' and 'end' are the indexes of the
@@ -317,9 +365,11 @@ class QueryStruct:
         """
         snode = self.nodes[trange.start]
         if ttype == TOKEN_PARTIAL:
-            assert snode.partial is None
             if _phrase_compatible_with(snode.ptype, TOKEN_PARTIAL, False):
-                snode.partial = token
+                snode.partial.penalty = token.penalty
+                snode.partial.token = token.token
+                snode.partial.count = token.count
+                snode.partial.addr_count = token.addr_count
         else:
             full_phrase = snode.btype in (BREAK_START, BREAK_PHRASE)\
                 and self.nodes[trange.end].btype in (BREAK_PHRASE, BREAK_END)
@@ -366,7 +416,15 @@ class QueryStruct:
         """ Iterate over the partial tokens between the given nodes.
             Missing partials are ignored.
         """
-        return (n.partial for n in self.nodes[trange.start:trange.end] if n.partial is not None)
+        return (n.partial for n in self.nodes[trange.start:trange.end])
+
+    def get_partial_penalty(self, trange: TokenRange) -> float:
+        """ Return the sumed up penalty of partial tokens plus break
+            penalty between tokens in the given range.
+        """
+        return self.nodes[trange.start].partial.penalty + \
+            sum(n.partial.penalty + n.word_break_penalty
+                for n in self.nodes[trange.start + 1:trange.end])
 
     def iter_tokens_by_edge(self) -> Iterator[Tuple[int, int, Dict[TokenType, List[Token]]]]:
         """ Iterator over all tokens except partial ones grouped by edge.
@@ -388,7 +446,7 @@ class QueryStruct:
             debugging.
         """
         for node in self.nodes:
-            if node.partial is not None and node.partial.token == token:
+            if node.partial.token == token:
                 return f"[P]{node.partial.lookup_word}"
             for tlist in node.starting:
                 for t in tlist.tokens:
@@ -411,13 +469,13 @@ class QueryStruct:
         words: Dict[str, List[TokenRange]] = defaultdict(list)
 
         for first, first_node in enumerate(self.nodes[start:endpos], start):
-            word = first_node.term_lookup
+            word = first_node.partial.transliterated
             words[word].append(TokenRange(first, first + 1))
             max_last = min(first + 20, endpos)
             for last, last_node in enumerate(self.nodes[first + 1:max_last], first + 2):
                 if last_node.btype == BREAK_PHRASE:
                     break
-                word = f"{word} {last_node.term_lookup}"
+                word = f"{word} {last_node.partial.transliterated}"
                 if len(word) > 255:
                     break
                 words[word].append(TokenRange(first, last))

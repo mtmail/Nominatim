@@ -9,7 +9,6 @@ Implementation of query analysis for the ICU tokenizer.
 """
 from typing import Tuple, Dict, List, Optional, Iterator, Any, cast
 import dataclasses
-import difflib
 import re
 
 from icu import Transliterator
@@ -35,16 +34,6 @@ DB_TO_TOKEN_TYPE = {
     'C': qmod.TOKEN_COUNTRY
 }
 
-PENALTY_BREAK = {
-     qmod.BREAK_START: -0.5,
-     qmod.BREAK_END: -0.5,
-     qmod.BREAK_PHRASE: -0.5,
-     qmod.BREAK_SOFT_PHRASE: -0.5,
-     qmod.BREAK_WORD: 0.1,
-     qmod.BREAK_PART: 0.2,
-     qmod.BREAK_TOKEN: 0.4
-}
-
 
 @dataclasses.dataclass
 class ICUToken(qmod.Token):
@@ -60,24 +49,6 @@ class ICUToken(qmod.Token):
     def get_country(self) -> str:
         assert self.info
         return cast(str, self.info.get('cc', ''))
-
-    def match_penalty(self, norm: str) -> float:
-        """ Check how well the token matches the given normalized string
-            and add a penalty, if necessary.
-        """
-        if not self.lookup_word:
-            return 0.0
-
-        seq = difflib.SequenceMatcher(a=self.lookup_word, b=norm)
-        distance = 0
-        for tag, afrom, ato, bfrom, bto in seq.get_opcodes():
-            if tag in ('delete', 'insert') and (afrom == 0 or ato == len(self.lookup_word)):
-                distance += 1
-            elif tag == 'replace':
-                distance += max((ato-afrom), (bto-bfrom))
-            elif tag != 'equal':
-                distance += abs((ato-afrom) - (bto-bfrom))
-        return (distance/len(self.lookup_word))
 
     @staticmethod
     def from_db_row(row: SaRow) -> 'ICUToken':
@@ -154,16 +125,16 @@ class ICUQueryAnalyzer(AbstractQueryAnalyzer):
 
         log().var_dump('Normalized query', query.source)
         if not query.source:
-            query.add_node(qmod.BREAK_END, qmod.PHRASE_ANY)
+            query.add_final_node()
             return query
 
         self.split_query(query)
         if query.num_token_slots() > 50:
             raise UsageError('Query is too long.')
         log().var_dump('Transliterated query',
-                       lambda: ''.join(f"{n.btype}{n.term_lookup}" for n in query.nodes)
+                       lambda: ''.join(f"{n.btype}{n.partial.transliterated}" for n in query.nodes)
                                + ' / '
-                               + ''.join(f"{n.btype}{n.term_normalized}" for n in query.nodes))
+                               + ''.join(f"{n.btype}{n.partial.lookup_word}" for n in query.nodes))
         words = query.extract_words()
 
         for row in await self.lookup_in_db(list(words.keys())):
@@ -188,14 +159,13 @@ class ICUQueryAnalyzer(AbstractQueryAnalyzer):
 
         self.add_extra_tokens(query)
         for start, end, pc in self.postcode_parser.parse(query):
-            term = ' '.join(n.term_lookup for n in query.nodes[start:end])
+            term = ' '.join(n.partial.transliterated for n in query.nodes[start:end])
             query.add_token(qmod.TokenRange(start, end),
                             qmod.TOKEN_POSTCODE,
                             ICUToken(penalty=0.0, token=0, count=1, addr_count=1,
                                      lookup_word=pc, word_token=term,
                                      info=None))
         self.rerank_tokens(query)
-        self.compute_break_penalties(query)
 
         log().table_dump('Word tokens', _dump_word_tokens(query))
 
@@ -250,12 +220,15 @@ class ICUQueryAnalyzer(AbstractQueryAnalyzer):
                         if trans := self.transliterator.transliterate(word):
                             for term, term_word in self.split_transliteration(trans, word):
                                 if term and len(term) < 256:
-                                    query.add_node(breakchar, phrase.ptype, term, term_word)
+                                    ptoken = qmod.PartialToken(
+                                                penalty=10.0, token=-1, count=1, addr_count=1,
+                                                lookup_word=term_word, transliterated=term)
+                                    query.add_node(breakchar, phrase.ptype, ptoken)
                                     breakchar = qmod.BREAK_TOKEN
                     breakchar = None
             breakchar = qmod.BREAK_PHRASE
 
-        query.add_node(qmod.BREAK_END, qmod.PHRASE_ANY)
+        query.add_final_node()
 
     async def lookup_in_db(self, words: List[str]) -> 'sa.Result[Any]':
         """ Return the token information from the database for the
@@ -282,9 +255,9 @@ class ICUQueryAnalyzer(AbstractQueryAnalyzer):
                                              count=1, addr_count=1,
                                              lookup_word=candidate,
                                              word_token=candidate, info=None))
-                if len(node.term_normalized) <= 4 and node.term_normalized.isdigit() \
+                if len(node.partial.lookup_word) <= 4 and node.partial.lookup_word.isdigit() \
                         and not node.has_tokens(i+1, qmod.TOKEN_HOUSENUMBER):
-                    candidate = node.term_lookup
+                    candidate = node.partial.transliterated
                 else:
                     candidate = None
 
@@ -299,12 +272,11 @@ class ICUQueryAnalyzer(AbstractQueryAnalyzer):
                         if ttype != qmod.TOKEN_POSTCODE and \
                                (ttype != qmod.TOKEN_HOUSENUMBER or
                                 start + 1 > end or
-                                len(query.nodes[start].term_lookup) > 4):
+                                len(query.nodes[start].partial.transliterated) > 4):
                             for token in tokens:
                                 token.penalty += 0.39
                         if (start + 1 == end):
-                            if partial := query.nodes[start].partial:
-                                partial.penalty += 0.39
+                            query.nodes[start].partial.penalty += 0.39
 
                 # If it looks like a simple housenumber, prefer that.
                 if qmod.TOKEN_HOUSENUMBER in tlist:
@@ -316,11 +288,10 @@ class ICUQueryAnalyzer(AbstractQueryAnalyzer):
                                 for token in tokens:
                                     token.penalty += penalty
                         if (start + 1 == end):
-                            if partial := query.nodes[start].partial:
-                                partial.penalty += penalty
+                            query.nodes[start].partial.penalty += penalty
 
             # rerank tokens against the normalized form
-            norm = ''.join(f"{'' if n.btype == qmod.BREAK_TOKEN else ' '}{n.term_normalized}"
+            norm = ''.join(f"{'' if n.btype == qmod.BREAK_TOKEN else ' '}{n.partial.lookup_word}"
                            for n in query.nodes[start:end]).strip()
             for ttype, tokens in tlist.items():
                 for token in tokens:
@@ -328,25 +299,20 @@ class ICUQueryAnalyzer(AbstractQueryAnalyzer):
                     itok.penalty += itok.match_penalty(norm) * \
                         (1 if ttype in (qmod.TOKEN_WORD, qmod.TOKEN_PARTIAL) else 2)
 
-    def compute_break_penalties(self, query: qmod.QueryStruct) -> None:
-        """ Set the break penalties for the nodes in the query.
-        """
-        for node in query.nodes:
-            node.penalty = PENALTY_BREAK[node.btype]
-
 
 def _dump_word_tokens(query: qmod.QueryStruct) -> Iterator[List[Any]]:
-    yield ['type', 'from', 'to', 'token', 'word_token', 'lookup_word', 'penalty', 'count', 'info']
-    for i, node in enumerate(query.nodes):
-        if node.partial is not None:
-            t = cast(ICUToken, node.partial)
-            yield [qmod.TOKEN_PARTIAL, str(i), str(i + 1), t.token,
-                   t.word_token, t.lookup_word, t.penalty, t.count, t.info]
+    yield ['type', 'from', 'to', 'token', 'word_token',
+           'lookup_word', 'penalty', 'count', 'addr_count', 'info']
+    for i, node in enumerate(query.nodes[:-1]):
+        pt = node.partial
+        yield [qmod.TOKEN_PARTIAL, str(i), str(i + 1), pt.token, pt.transliterated,
+               pt.lookup_word, pt.penalty, pt.count, pt.addr_count, '']
+    for i, node in enumerate(query.nodes[:-1]):
         for tlist in node.starting:
             for token in tlist.tokens:
                 t = cast(ICUToken, token)
                 yield [tlist.ttype, str(i), str(tlist.end), t.token, t.word_token or '',
-                       t.lookup_word or '', t.penalty, t.count, t.info]
+                       t.lookup_word or '', t.penalty, t.count, t.addr_count, t.info]
 
 
 async def create_query_analyzer(conn: SearchConnection) -> AbstractQueryAnalyzer:

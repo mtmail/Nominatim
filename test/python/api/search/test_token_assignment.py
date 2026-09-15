@@ -13,7 +13,6 @@ from nominatim_api.search.query import QueryStruct, Phrase, TokenRange, Token
 import nominatim_api.search.query as qmod
 from nominatim_api.search.token_assignment import (yield_token_assignments,
                                                    TokenAssignment)
-from nominatim_api.search.icu_tokenizer import PENALTY_BREAK
 
 
 class MyToken(Token):
@@ -30,9 +29,10 @@ def make_query(*args):
                     lookup_word='foo')
 
     for btype, ptype, _ in args:
-        q.add_node(btype, ptype)
-        q.nodes[-1].penalty = PENALTY_BREAK[btype]
-    q.add_node(qmod.BREAK_END, qmod.PHRASE_ANY)
+        q.add_node(btype, ptype,
+                   qmod.PartialToken(penalty=10.0, token=-1, count=1, addr_count=1,
+                                     lookup_word='', transliterated=''))
+    q.add_final_node()
 
     for start, t in enumerate(args):
         for end, ttype in t[2]:
@@ -52,7 +52,7 @@ def check_assignments(actual, *expected):
 
 def test_query_with_missing_tokens():
     q = QueryStruct([Phrase(qmod.PHRASE_ANY, '')])
-    q.add_node(qmod.BREAK_END, qmod.PHRASE_ANY)
+    q.add_final_node()
 
     assert list(yield_token_assignments(q)) == []
 
@@ -98,7 +98,7 @@ def test_multiple_simple_words(btype):
                    (btype, qmod.PHRASE_ANY, [(2, qmod.TOKEN_PARTIAL)]),
                    (btype, qmod.PHRASE_ANY, [(3, qmod.TOKEN_PARTIAL)]))
 
-    penalty = PENALTY_BREAK[btype]
+    penalty = qmod.PENALTY_BREAK[btype]
 
     check_assignments(yield_token_assignments(q),
                       TokenAssignment(name=TokenRange(0, 3)),

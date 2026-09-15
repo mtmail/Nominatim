@@ -70,7 +70,8 @@ async def test_single_phrase_with_unknown_terms(conn):
 
     assert query.num_token_slots() == 2
     assert query.nodes[0].partial.token == 1
-    assert query.nodes[1].partial is None
+    assert query.nodes[1].partial.token == -1
+    assert query.nodes[1].partial.penalty == 10.0
 
 
 @pytest.mark.asyncio

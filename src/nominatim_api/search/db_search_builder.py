@@ -2,7 +2,7 @@
 #
 # This file is part of Nominatim. (https://nominatim.org)
 #
-# Copyright (C) 2025 by the Nominatim developer community.
+# Copyright (C) 2026 by the Nominatim developer community.
 # For a full list of authors see the git log.
 """
 Conversion from token assignment to an abstract DB search.
@@ -306,10 +306,7 @@ class SearchBuilder:
                  for t in name_fulls]
         ranks.sort(key=lambda r: r.penalty)
         # Fallback, sum of penalty for partials
-        default = sum(t.penalty for t in self.query.iter_partials(trange)) + 0.2
-        default += sum(n.word_break_penalty
-                       for n in self.query.nodes[trange.start + 1:trange.end])
-        return dbf.FieldRanking(db_field, default, ranks)
+        return dbf.FieldRanking(db_field, self.query.get_partial_penalty(trange) + 0.2, ranks)
 
     def get_addr_ranking(self, trange: qmod.TokenRange) -> dbf.FieldRanking:
         """ Create a list of ranking expressions for an address term
@@ -323,7 +320,7 @@ class SearchBuilder:
             _, pos, rank = heapq.heappop(todo)
             # partial node
             partial = self.query.nodes[pos].partial
-            if partial is not None:
+            if partial.penalty < 10.0:
                 if pos + 1 < trange.end:
                     penalty = rank.penalty + partial.penalty \
                               + self.query.nodes[pos + 1].word_break_penalty
@@ -351,9 +348,7 @@ class SearchBuilder:
             if len(ranks) >= 10:
                 # Too many variants, bail out and only add
                 # Worst-case Fallback: sum of penalty of partials
-                default = sum(t.penalty for t in self.query.iter_partials(trange)) + 0.2
-                default += sum(n.word_break_penalty
-                               for n in self.query.nodes[trange.start + 1:trange.end])
+                default = self.query.get_partial_penalty(trange) + 0.2
                 ranks.append(dbf.RankedTokens(rank.penalty + default, []))
                 # Bail out of outer loop
                 break
