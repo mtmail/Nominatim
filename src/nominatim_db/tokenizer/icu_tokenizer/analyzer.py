@@ -258,8 +258,7 @@ class ICUNameAnalyzer(AbstractAnalyzer):
             elif item.kind == 'place':
                 if not item.suffix:
                     token_info.add_place(self._compute_name_tokens([item]))
-            elif (not item.kind.startswith('_') and not item.suffix and
-                  item.kind not in ('country', 'full', 'inclusion')):
+            elif not item.suffix:
                 token_info.add_address_term(item.kind,
                                             self._compute_name_tokens([item]))
 

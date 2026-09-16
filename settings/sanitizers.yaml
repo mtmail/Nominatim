@@ -13,6 +13,10 @@
     - unit
     - floor
     - flats
+    - country
+    - full
+    - inclusion
+    - '_.*'
 - step: clean-housenumbers
   filter-kind:
     - housenumber

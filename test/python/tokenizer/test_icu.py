@@ -526,9 +526,8 @@ class TestPlaceAddress:
         assert 'place' not in info
 
     def test_process_place_address_terms(self):
-        info = self.process_address(country='de', city='Zwickau', state='Sachsen',
-                                    suburb='Zwickau', street='Hauptstr',
-                                    full='right behind the church')
+        info = self.process_address(city='Zwickau', state='Sachsen',
+                                    suburb='Zwickau', street='Hauptstr')
 
         city = self.name_token_set('ZWICKAU', '#ZWICKAU')
         state = self.name_token_set('SACHSEN', '#SACHSEN')
@@ -545,8 +544,7 @@ class TestPlaceAddress:
         assert result == {'city': self.name_token_set('Bruxelles', '#Bruxelles')}
 
     def test_process_place_address_terms_empty(self):
-        info = self.process_address(country='de', city=' ', street='Hauptstr',
-                                    full='right behind the church')
+        info = self.process_address(city=' ', street='Hauptstr')
 
         assert 'addr' not in info
 
